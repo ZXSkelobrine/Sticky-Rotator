@@ -71,4 +71,9 @@ public class RedditManager {
 		return posts;
 	}
 
+	public static StickyPost generateStickyPost(String postID) throws RedditException {
+		RedditLink link = reddit.infoForId(postID).get(0);
+		return new StickyPost(link);
+	}
+
 }

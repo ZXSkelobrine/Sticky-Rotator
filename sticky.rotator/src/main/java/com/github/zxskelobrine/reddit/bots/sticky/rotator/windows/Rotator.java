@@ -10,6 +10,7 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowStateListener;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
@@ -25,9 +26,13 @@ import javax.swing.ListSelectionModel;
 import javax.swing.border.EmptyBorder;
 
 import com.cd.reddit.RedditException;
+import com.github.zxskelobrine.reddit.bots.sticky.rotator.HintTextField;
 import com.github.zxskelobrine.reddit.bots.sticky.rotator.StickyPost;
 import com.github.zxskelobrine.reddit.bots.sticky.rotator.reddit.RedditManager;
 import com.github.zxskelobrine.reddit.bots.sticky.rotator.tray.TrayManager;
+
+import java.awt.Font;
+import javax.swing.SwingConstants;
 
 public class Rotator extends JFrame {
 
@@ -35,15 +40,22 @@ public class Rotator extends JFrame {
 	private JPanel contentPane;
 	private JPanel panel;
 	private JPanel stickyChooser;
+	private JPanel panel_1;
 
 	private JTextField txtSubreddit;
 	private JTextField txtRotationTime;
+
+	private HintTextField txtPost;
+
+	private JTextPane txtpnLog;
 
 	private JButton btnSet;
 	private JButton btnStopRotation;
 	private JButton btnStartRotation;
 	private JButton btnListPosts;
 	private JButton btnAdd;
+	private JButton btnAdd_1;
+	private JButton btnHelp;
 	private JButton btnRemove;
 
 	private JComboBox<String> cmbTimeScale;
@@ -51,6 +63,7 @@ public class Rotator extends JFrame {
 	private String[] cmbValues;
 
 	private JLabel lblRotationalDelay;
+	private JLabel lblInvalidPostPress;
 	private JLabel lblr;
 	private JLabel lblSubreddit;
 
@@ -62,6 +75,7 @@ public class Rotator extends JFrame {
 	private GridBagLayout gbl_contentPane;
 	private GridBagLayout gbl_panel;
 	private GridBagLayout gbl_rotationalSettings;
+	private GridBagLayout gbl_panel_1;
 	private GridBagLayout gbl_stickyChooser;
 
 	private GridBagConstraints gbc_stickyChooser;
@@ -82,6 +96,12 @@ public class Rotator extends JFrame {
 	private GridBagConstraints gbc_txtRotationTime;
 	private GridBagConstraints gbc_cmbTimeScale;
 	private GridBagConstraints gbc_btnSet;
+	private GridBagConstraints gbc_txtPost;
+	private GridBagConstraints gbc_panel_1;
+	private GridBagConstraints gbc_btnAdd_1;
+	private GridBagConstraints gbc_btnHelp;
+	private GridBagConstraints gbc_lblInvalidPostPress;
+	private GridBagConstraints gbc_txtpnLog;
 
 	private static final long serialVersionUID = 1L;
 	private long millisDelay = -1;
@@ -94,7 +114,8 @@ public class Rotator extends JFrame {
 	private List<StickyPost> subredditPosts = new ArrayList<StickyPost>();
 
 	public static Rotator instance;
-	private JTextPane txtpnLog;
+	private JLabel lblError;
+	private GridBagConstraints gbc_lblError;
 
 	/**
 	 * Launch the application.
@@ -126,7 +147,7 @@ public class Rotator extends JFrame {
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		gbl_contentPane = new GridBagLayout();
-		gbl_contentPane.columnWidths = new int[] { 497, 176, 0 };
+		gbl_contentPane.columnWidths = new int[] { 550, 272, 0 };
 		gbl_contentPane.rowHeights = new int[] { 0, 0 };
 		gbl_contentPane.columnWeights = new double[] { 1.0, 1.0, Double.MIN_VALUE };
 		gbl_contentPane.rowWeights = new double[] { 1.0, Double.MIN_VALUE };
@@ -142,15 +163,15 @@ public class Rotator extends JFrame {
 		contentPane.add(stickyChooser, gbc_stickyChooser);
 		gbl_stickyChooser = new GridBagLayout();
 		gbl_stickyChooser.columnWidths = new int[] { 225, 0, 225, 0 };
-		gbl_stickyChooser.rowHeights = new int[] { 0, 237, 0 };
-		gbl_stickyChooser.columnWeights = new double[] { 0.0, 0.0, 0.0, Double.MIN_VALUE };
-		gbl_stickyChooser.rowWeights = new double[] { 1.0, 0.0, Double.MIN_VALUE };
+		gbl_stickyChooser.rowHeights = new int[] { 0, 237, 26, 0 };
+		gbl_stickyChooser.columnWeights = new double[] { 1.0, 0.0, 1.0, Double.MIN_VALUE };
+		gbl_stickyChooser.rowWeights = new double[] { 1.0, 0.0, 0.0, Double.MIN_VALUE };
 		stickyChooser.setLayout(gbl_stickyChooser);
 
 		lstSelected = new JList<StickyPost>();
 		gbc_lstSelected = new GridBagConstraints();
 		gbc_lstSelected.gridheight = 2;
-		gbc_lstSelected.insets = new Insets(0, 0, 0, 5);
+		gbc_lstSelected.insets = new Insets(0, 0, 5, 5);
 		gbc_lstSelected.fill = GridBagConstraints.BOTH;
 		gbc_lstSelected.gridx = 0;
 		gbc_lstSelected.gridy = 0;
@@ -160,11 +181,10 @@ public class Rotator extends JFrame {
 		btnRemove.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				if (lstSelected.getSelectedValue() != null) {
-					log("Post: " + lstSelected.getSelectedValue().getPostID() + " added.");
+					log("Post: " + lstSelected.getSelectedValue().getPostID() + " removed.");
 					subredditPosts.add(lstSelected.getSelectedValue());
 					selectedPosts.remove(lstSelected.getSelectedValue());
-					lstPosts.setListData(RedditManager.getArrayFromList(subredditPosts));
-					lstSelected.setListData(RedditManager.getArrayFromList(selectedPosts));
+					updateLists();
 				}
 			}
 		});
@@ -182,14 +202,13 @@ public class Rotator extends JFrame {
 					log("Post: " + lstPosts.getSelectedValue().getPostID() + " added.");
 					selectedPosts.add(lstPosts.getSelectedValue());
 					subredditPosts.remove(lstPosts.getSelectedValue());
-					lstPosts.setListData(RedditManager.getArrayFromList(subredditPosts));
-					lstSelected.setListData(RedditManager.getArrayFromList(selectedPosts));
+					updateLists();
 				}
 			}
 		});
 		gbc_btnAdd = new GridBagConstraints();
 		gbc_btnAdd.anchor = GridBagConstraints.NORTH;
-		gbc_btnAdd.insets = new Insets(0, 0, 0, 5);
+		gbc_btnAdd.insets = new Insets(0, 0, 5, 5);
 		gbc_btnAdd.gridx = 1;
 		gbc_btnAdd.gridy = 1;
 		stickyChooser.add(btnAdd, gbc_btnAdd);
@@ -197,11 +216,85 @@ public class Rotator extends JFrame {
 		lstPosts = new JList<StickyPost>();
 		lstPosts.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		gbc_lstPosts = new GridBagConstraints();
+		gbc_lstPosts.insets = new Insets(0, 0, 5, 0);
 		gbc_lstPosts.gridheight = 2;
 		gbc_lstPosts.fill = GridBagConstraints.BOTH;
 		gbc_lstPosts.gridx = 2;
 		gbc_lstPosts.gridy = 0;
 		stickyChooser.add(lstPosts, gbc_lstPosts);
+
+		txtPost = new HintTextField("Post ID (E.g. t3_2akmk6)");
+		gbc_txtPost = new GridBagConstraints();
+		gbc_txtPost.gridwidth = 2;
+		gbc_txtPost.insets = new Insets(0, 0, 0, 5);
+		gbc_txtPost.fill = GridBagConstraints.HORIZONTAL;
+		gbc_txtPost.gridx = 0;
+		gbc_txtPost.gridy = 2;
+		stickyChooser.add(txtPost, gbc_txtPost);
+		txtPost.setColumns(10);
+
+		panel_1 = new JPanel();
+		gbc_panel_1 = new GridBagConstraints();
+		gbc_panel_1.fill = GridBagConstraints.BOTH;
+		gbc_panel_1.gridx = 2;
+		gbc_panel_1.gridy = 2;
+		stickyChooser.add(panel_1, gbc_panel_1);
+		gbl_panel_1 = new GridBagLayout();
+		gbl_panel_1.columnWidths = new int[] { 0, 0, 0, 0 };
+		gbl_panel_1.rowHeights = new int[] { 0, 0 };
+		gbl_panel_1.columnWeights = new double[] { 0.0, 0.0, 0.0, Double.MIN_VALUE };
+		gbl_panel_1.rowWeights = new double[] { 0.0, Double.MIN_VALUE };
+		panel_1.setLayout(gbl_panel_1);
+
+		btnAdd_1 = new JButton("Add");
+		btnAdd_1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				if (!txtPost.getText().equals("Post ID (E.g. t3_2akmk6)")) {
+					String id = txtPost.getText();
+					try {
+						if (id.subSequence(0, id.indexOf("_")).length() == 2) {
+							lblInvalidPostPress.setVisible(false);
+							StickyPost post = RedditManager.generateStickyPost(id);
+							checkAndRemove(post, false);
+							selectedPosts.add(RedditManager.generateStickyPost(id));
+							updateLists();
+							log("Post: " + lstPosts.getSelectedValue().getPostID() + " added.");
+						} else {
+							lblInvalidPostPress.setVisible(true);
+						}
+					} catch (Exception e1) {
+						lblInvalidPostPress.setVisible(true);
+					}
+				}
+			}
+		});
+		gbc_btnAdd_1 = new GridBagConstraints();
+		gbc_btnAdd_1.insets = new Insets(0, 0, 0, 5);
+		gbc_btnAdd_1.gridx = 0;
+		gbc_btnAdd_1.gridy = 0;
+		panel_1.add(btnAdd_1, gbc_btnAdd_1);
+
+		btnHelp = new JButton("Help");
+		btnHelp.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				PostHelp.launch();
+			}
+		});
+		gbc_btnHelp = new GridBagConstraints();
+		gbc_btnHelp.insets = new Insets(0, 0, 0, 5);
+		gbc_btnHelp.gridx = 1;
+		gbc_btnHelp.gridy = 0;
+		panel_1.add(btnHelp, gbc_btnHelp);
+
+		lblInvalidPostPress = new JLabel("Invalid Post. Press help for help");
+		lblInvalidPostPress.setFont(new Font("Tahoma", Font.PLAIN, 9));
+		lblInvalidPostPress.setVisible(false);
+
+		gbc_lblInvalidPostPress = new GridBagConstraints();
+		gbc_lblInvalidPostPress.anchor = GridBagConstraints.WEST;
+		gbc_lblInvalidPostPress.gridx = 2;
+		gbc_lblInvalidPostPress.gridy = 0;
+		panel_1.add(lblInvalidPostPress, gbc_lblInvalidPostPress);
 
 		rotationalSettings = new JPanel();
 		gbc_rotationalSettings = new GridBagConstraints();
@@ -210,7 +303,7 @@ public class Rotator extends JFrame {
 		gbc_rotationalSettings.gridy = 0;
 		contentPane.add(rotationalSettings, gbc_rotationalSettings);
 		gbl_rotationalSettings = new GridBagLayout();
-		gbl_rotationalSettings.columnWidths = new int[] { 89, 27, 218, 0 };
+		gbl_rotationalSettings.columnWidths = new int[] { 85, 27, 192, 0 };
 		gbl_rotationalSettings.rowHeights = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
 		gbl_rotationalSettings.columnWeights = new double[] { 1.0, 1.0, 0.0, Double.MIN_VALUE };
 		gbl_rotationalSettings.rowWeights = new double[] { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE };
@@ -242,14 +335,19 @@ public class Rotator extends JFrame {
 		txtSubreddit.setColumns(10);
 
 		btnListPosts = new JButton("List Posts");
+		btnListPosts.setFont(new Font("Tahoma", Font.PLAIN, 9));
 		btnListPosts.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				try {
 					subredditPosts = RedditManager.getSubredditListing(txtSubreddit.getText());
 					lstPosts.setListData(RedditManager.getArrayFromList(subredditPosts));
 					log("Posts listed.");
+					lblError.setVisible(false);
 				} catch (RedditException e1) {
-					e1.printStackTrace();
+					if (e1.getMessage().contains("403")) {
+						lblError.setText("Access Denied: Is this subreddit private?");
+						lblError.setVisible(true);
+					}
 				}
 			}
 		});
@@ -283,6 +381,18 @@ public class Rotator extends JFrame {
 				}
 			}
 		});
+
+		lblError = new JLabel("Error");
+		lblError.setHorizontalAlignment(SwingConstants.CENTER);
+		lblError.setVisible(false);
+
+		gbc_lblError = new GridBagConstraints();
+		gbc_lblError.anchor = GridBagConstraints.WEST;
+		gbc_lblError.gridwidth = 3;
+		gbc_lblError.insets = new Insets(0, 0, 5, 5);
+		gbc_lblError.gridx = 0;
+		gbc_lblError.gridy = 2;
+		rotationalSettings.add(lblError, gbc_lblError);
 		gbc_btnStartRotation = new GridBagConstraints();
 		gbc_btnStartRotation.insets = new Insets(0, 0, 5, 0);
 		gbc_btnStartRotation.fill = GridBagConstraints.HORIZONTAL;
@@ -333,7 +443,6 @@ public class Rotator extends JFrame {
 		panel = new JPanel();
 		gbc_panel = new GridBagConstraints();
 		gbc_panel.gridwidth = 3;
-		gbc_panel.insets = new Insets(0, 0, 0, 5);
 		gbc_panel.fill = GridBagConstraints.BOTH;
 		gbc_panel.gridx = 0;
 		gbc_panel.gridy = 6;
@@ -412,7 +521,7 @@ public class Rotator extends JFrame {
 
 		txtpnLog = new JTextPane();
 		txtpnLog.setEditable(false);
-		GridBagConstraints gbc_txtpnLog = new GridBagConstraints();
+		gbc_txtpnLog = new GridBagConstraints();
 		gbc_txtpnLog.gridwidth = 3;
 		gbc_txtpnLog.insets = new Insets(0, 0, 0, 5);
 		gbc_txtpnLog.fill = GridBagConstraints.BOTH;
@@ -477,7 +586,29 @@ public class Rotator extends JFrame {
 
 	private void log(String message) {
 		txtpnLog.setText(txtpnLog.getText() + message + "\n");
+	}
 
+	private void updateLists() {
+		lstPosts.setListData(RedditManager.getArrayFromList(subredditPosts));
+		lstSelected.setListData(RedditManager.getArrayFromList(selectedPosts));
+	}
+
+	private void checkAndRemove(StickyPost post, boolean selected) {
+		List<StickyPost> stickyPosts;
+		if (selected) {
+			stickyPosts = new CopyOnWriteArrayList<>(selectedPosts);
+		} else {
+			stickyPosts = new CopyOnWriteArrayList<>(subredditPosts);
+		}
+		for (StickyPost stickyPost : stickyPosts) {
+			if (stickyPost.getTitle().equals(post.getTitle()) && stickyPost.getPostID().equals(post.getPostID())) {
+				if (selected) {
+					selectedPosts.remove(stickyPost);
+				} else {
+					subredditPosts.remove(stickyPost);
+				}
+			}
+		}
 	}
 
 }

@@ -21,7 +21,8 @@ import com.github.zxskelobrine.reddit.bots.sticky.rotator.windows.Rotator;
 public class TrayManager {
 
 	public static final String ICON_LOCATION = "/resources/icons/icon.png";
-//	public static final String ICON_LOCATION = "/icons/icon.png";
+
+	// public static final String ICON_LOCATION = "/icons/icon.png";
 
 	public static boolean initializeTray() {
 		if (!SystemTray.isSupported()) return false;
